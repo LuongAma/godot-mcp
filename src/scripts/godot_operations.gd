@@ -75,7 +75,36 @@ func _init():
             log_error("Unknown operation: " + operation)
             quit(1)
     
+    # Cleanup resources before quitting to prevent memory leaks
+    cleanup_resources()
     quit()
+
+# Cleanup function to prevent memory leaks
+func cleanup_resources():
+    if debug_mode:
+        print("[DEBUG] Cleaning up resources to prevent memory leaks...")
+    
+    # Force multiple garbage collection cycles
+    for i in range(3):
+        if Engine.has_method("get_main_loop"):
+            var main_loop = Engine.get_main_loop()
+            if main_loop:
+                # Process any pending deferred calls
+                if main_loop.has_method("process"):
+                    main_loop.process(0.0)
+                if main_loop.has_method("physics_process"):
+                    main_loop.physics_process(0.0)
+        
+        # Small delay between cycles
+        if OS.has_method("delay_msec"):
+            OS.delay_msec(20)
+    
+    # Final cleanup delay
+    if OS.has_method("delay_msec"):
+        OS.delay_msec(100)
+    
+    if debug_mode:
+        print("[DEBUG] Resource cleanup completed")
 
 # Logging functions
 func log_debug(message):
@@ -257,14 +286,19 @@ func create_scene(params):
     if debug_mode:
         print("Root node created with name: " + scene_root.name)
     
-    # Set the owner of the root node to itself (important for scene saving)
-    scene_root.owner = scene_root
+    # Root node doesn't need an owner for scene saving
+    scene_root.owner = null
     
-    # Pack the scene
+    # Pack the scene immediately to minimize memory usage
     var packed_scene = PackedScene.new()
     var result = packed_scene.pack(scene_root)
     if debug_mode:
         print("Pack result: " + str(result) + " (OK=" + str(OK) + ")")
+    
+    # Immediately free the scene root to prevent memory leaks
+    if scene_root:
+        scene_root.free()
+        scene_root = null
     
     if result == OK:
         # Only do extensive testing in debug mode
@@ -540,6 +574,11 @@ func add_node(params):
     if debug_mode:
         print("Pack result: " + str(result) + " (OK=" + str(OK) + ")")
     
+    # Immediately free the scene root to prevent memory leaks
+    if scene_root:
+        scene_root.free()
+        scene_root = null
+    
     if result == OK:
         if debug_mode:
             print("Saving scene to: " + absolute_scene_path)
@@ -665,6 +704,11 @@ func load_sprite(params):
     var result = packed_scene.pack(scene_root)
     if debug_mode:
         print("Pack result: " + str(result) + " (OK=" + str(OK) + ")")
+    
+    # Immediately free the scene root to prevent memory leaks
+    if scene_root:
+        scene_root.free()
+        scene_root = null
     
     if result == OK:
         if debug_mode:
@@ -1163,6 +1207,11 @@ func save_scene(params):
     var result = packed_scene.pack(scene_root)
     if debug_mode:
         print("Pack result: " + str(result) + " (OK=" + str(OK) + ")")
+    
+    # Immediately free the scene root to prevent memory leaks
+    if scene_root:
+        scene_root.free()
+        scene_root = null
     
     if result == OK:
         if debug_mode:
